@@ -38,6 +38,7 @@ cam_channel: 64
 radar_channel: 3
 use_Radar: false
 use_Cam: true
+data_aug: false
 data_aug_conf:
   crop_offset: 51
   resize_lim:

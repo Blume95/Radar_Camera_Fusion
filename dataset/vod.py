@@ -10,11 +10,12 @@ import cv2
 
 
 class VodData(Dataset):
-    def __init__(self, vod_path, radar_folder, grid_conf, is_train, data_aug_conf, useRadar, useCamera):
+    def __init__(self, vod_path, radar_folder, grid_conf, is_train, data_aug_conf, useRadar, useCamera,data_aug):
         super(VodData).__init__()
         self.vox_x = grid_conf["xbound"][-1]
         self.vox_z = grid_conf["zbound"][-1]
         self.is_train = is_train
+        self.data_aug = data_aug
         self.vod_path = vod_path
         self.useRadar = useRadar
         self.useCamera = useCamera
@@ -73,7 +74,7 @@ class VodData(Dataset):
 
     def sample_augmentation(self):
         fH, fW = self.data_aug_conf['final_dim']
-        if self.is_train:
+        if self.is_train and self.data_aug:
             if 'resize_lim' in self.data_aug_conf and self.data_aug_conf['resize_lim'] is not None:
                 resize = np.random.uniform(*self.data_aug_conf['resize_lim'])
             else:
@@ -92,7 +93,7 @@ class VodData(Dataset):
             crop_h = crop_h + int(np.random.uniform(-crop_offset, crop_offset))
 
             crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
-        else:  # validation/test
+        elif not self.is_train:  # validation/test
             # do a perfect resize
             resize_dims = (fW, fH)
             crop_h = 0
@@ -355,12 +356,12 @@ class VodData(Dataset):
         return len(self.frame_numbers)
 
 def dataloaders(path, grid, nworkers, batch_size, data_aug_conf,
-                useRadar=True, useCamera=True):
+                useRadar=True, useCamera=True,data_aug=True):
     # vod_path,radar_folder,grid_conf,is_train,data_aug_conf,vox_x,vox_z,useRadar,useCamera
     train_data = VodData(vod_path=path, radar_folder="radar", grid_conf=grid, is_train=True,
-                         data_aug_conf=data_aug_conf, useRadar=useRadar, useCamera=useCamera)
+                         data_aug_conf=data_aug_conf, useRadar=useRadar, useCamera=useCamera,data_aug=data_aug)
     val_data = VodData(vod_path=path, radar_folder="radar", grid_conf=grid, is_train=False, data_aug_conf=data_aug_conf,
-                       useRadar=useRadar, useCamera=useCamera)
+                       useRadar=useRadar, useCamera=useCamera,data_aug=data_aug)
 
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True, num_workers=nworkers, drop_last=True

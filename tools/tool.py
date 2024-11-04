@@ -27,7 +27,7 @@ def build_dataset(cfg):
         train_loader,val_loader = dataloaders(path=cfg.dataset_path,grid=cfg.grid,
                     nworkers=cfg.workers,batch_size=cfg.batch_size,
                     data_aug_conf=cfg.data_aug_conf,useRadar=cfg.use_Radar,
-                    useCamera=cfg.use_Cam)
+                    useCamera=cfg.use_Cam,data_aug=cfg.data_aug)
         return train_loader, val_loader
     elif cfg.dataset == "expleo":
         train_loader, val_loader =None,None
