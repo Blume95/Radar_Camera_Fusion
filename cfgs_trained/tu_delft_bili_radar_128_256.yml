@@ -1,0 +1,69 @@
+dataset: tu_delft
+dataset_path: /home/jing/Downloads/view_of_delft_PUBLIC/
+model: Bili
+batch_size: 6
+workers: 8
+lr: 0.0001
+weight_decay: 1.0e-05
+nepochs: 200
+val_step: 200
+img_feat_c: 512
+out_ch: 256
+grad_acc: 4
+max_iters: 3000
+grid:
+  xbound:
+  - -8.0
+  - 8.0
+  - 0.1
+  ybound:
+  - -4.0
+  - 4.0
+  - 1.0
+  zbound:
+  - 0
+  - 32
+  - 0.1
+  dbound:
+  - 3.0
+  - 43.0
+  - 1.0
+final_hw:
+- 128
+- 256
+org_hw:
+- 1216
+- 1936
+cam_channel: 64
+radar_channel: 3
+use_Radar: true
+use_Cam: true
+data_aug_conf:
+  crop_offset: 25
+  resize_lim:
+  - 0.8
+  - 1.2
+  final_dim:
+  - 128
+  - 256
+  H: 1216
+  W: 1936
+out_channel: 1
+voxel_x: 160
+voxel_y: 8
+voxel_z: 320
+x_meter: 16.0
+y_meter: 8.0
+z_meter: 32
+blocks:
+- 128
+- 128
+- 64
+- 64
+bounds:
+- -8.0
+- 8.0
+- -4.0
+- 4.0
+- 0
+- 32
