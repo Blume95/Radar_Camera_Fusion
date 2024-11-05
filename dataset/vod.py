@@ -93,7 +93,7 @@ class VodData(Dataset):
             crop_h = crop_h + int(np.random.uniform(-crop_offset, crop_offset))
 
             crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
-        elif not self.is_train:  # validation/test
+        else:  # validation/test
             # do a perfect resize
             resize_dims = (fW, fH)
             crop_h = 0

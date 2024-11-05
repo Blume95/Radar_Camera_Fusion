@@ -50,6 +50,11 @@ def build_model(cfg):
                            out_dim=(int(cfg.voxel_z//16),int(cfg.voxel_x//16)),blocks=cfg.blocks,
                            use_radar=cfg.use_Radar,radar_ch=cfg.radar_channel,Y=cfg.voxel_y)
         return model_
+    if cfg.model == "CVT":
+        from model.cvt import BuildModel
+        model_ = BuildModel(feat_c=cfg.img_feat_c,depth=cfg.z_meter,img_h=cfg.final_hw[0], img_w=cfg.final_hw[1],
+                            Z=cfg.voxel_z,Y=cfg.voxel_y,X=cfg.voxel_x,bev_dim=cfg.out_ch)
+        return model_
 
     else:
         raise NotImplementedError
