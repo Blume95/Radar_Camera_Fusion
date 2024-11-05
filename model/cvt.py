@@ -64,7 +64,7 @@ class UpsamplingAdd(nn.Module):
         return x + x_skip
 
 class ImageBackbone(nn.Module):
-    def __init__(self, C: int, voxel_z:int,weight="efficientnet-b0",mid_channel=512):
+    def __init__(self, C: int,weight="efficientnet-b0",mid_channel=512):
         super(ImageBackbone, self).__init__()
         self.C = C
         self.trunk = EfficientNet.from_pretrained(weight)
@@ -82,8 +82,6 @@ class ImageBackbone(nn.Module):
             raise NotImplemented
 
         self.outLayer = nn.Conv2d(mid_channel, self.C, kernel_size=1, padding=0)
-        self.depthnet = nn.Conv2d(self.C, voxel_z, kernel_size=1, padding=0)
-        self.depthnet1 = nn.Conv2d(40, voxel_z, kernel_size=1, padding=0)
 
     def get_eff_features(self, x: torch.Tensor):
         endpoints = dict()
@@ -107,10 +105,8 @@ class ImageBackbone(nn.Module):
     def forward(self, x: torch.Tensor):
         # x batch , 3 , h, w
         x,pre_x = self.get_eff_features(x)
-        x_depth = self.depthnet(x)
-        pre_x_depth = self.depthnet1(pre_x)
 
-        return x,pre_x,x_depth.softmax(dim=1),pre_x_depth.softmax(dim=1)
+        return x,pre_x
 
 
 class CrossAttention(nn.Module):
@@ -186,7 +182,7 @@ class CrossViewAttention(nn.Module):
         self.feat_h = feat_h
         self.feat_w = feat_w
         self.bev_embed = nn.Linear(3*Y,bev_dim)
-        self.img_embed = nn.Linear(4*Z,bev_dim)
+        self.img_embed = nn.Linear(3*Z,bev_dim)
         self.value_proj = nn.Sequential(
             nn.BatchNorm2d(feat_dim),
             nn.ReLU(),
@@ -216,26 +212,26 @@ class CrossViewAttention(nn.Module):
 
         return bev_plane
 
-    def forward(self,img_feat,intrinsic,depth_feat,bev_feat):
+    def forward(self,img_feat,intrinsic,bev_feat):
         intrinsic[:,0,:] *= self.sx
         intrinsic[:,1,:] *= self.sy
         inv_intrinsic = intrinsic.inverse()
 
 
         image_plane = repeat(self.image_plane,'b n c -> (repeat b) n c',repeat=img_feat.shape[0])
-        print(f"image_plane: {image_plane.shape}")
+        # print(f"image_plane: {image_plane.shape}")
         image_plane = torch.transpose(image_plane,1,2)
         xyz = torch.transpose(torch.matmul(inv_intrinsic,image_plane),1,2) # b n 3
-        depth_feat = rearrange(depth_feat,'b c h w -> b (c h w)')
-        depth_feat = depth_feat[:,:,None]
-        print(f"xyz;{xyz.shape}")
-        print(f"depth_feat;{depth_feat.shape}")
-        xyz_depth = torch.cat((xyz,depth_feat),dim=2)
-        xyz_depth = rearrange(xyz_depth,'b (d h w) c -> b d h w c',b=img_feat.shape[0],d=self.Z,
-                              h=self.feat_h,w=self.feat_w,c=4)
-        xyz_depth = rearrange(xyz_depth, 'b d h w c -> b h w (c d)')
+        # depth_feat = rearrange(depth_feat,'b c h w -> b (c h w)')
+        # depth_feat = depth_feat[:,:,None]
+        # print(f"xyz;{xyz.shape}")
+        # print(f"depth_feat;{depth_feat.shape}")
+        # xyz_depth = torch.cat((xyz,depth_feat),dim=2)
+        xyz = rearrange(xyz,'b (d h w) c -> b d h w c',b=img_feat.shape[0],d=self.Z,
+                              h=self.feat_h,w=self.feat_w,c=3)
+        xyz_depth = rearrange(xyz, 'b d h w c -> b h w (c d)')
         img_pe = self.img_embed(xyz_depth).permute(0,3,1,2)
-        print(f"img_feat.shape: {img_feat.shape}")
+        # print(f"img_feat.shape: {img_feat.shape}")
         key_feat = self.key_proj(img_feat)
 
         key = img_pe + key_feat
@@ -326,7 +322,7 @@ class Decoder(nn.Module):
 class BuildModel(nn.Module):
     def __init__(self,feat_c,depth,img_h,img_w,Z,Y,X,bev_dim):
         super(BuildModel, self).__init__()
-        self.backbone = ImageBackbone(C=feat_c, voxel_z=Z,weight="efficientnet-b0")
+        self.backbone = ImageBackbone(C=feat_c,weight="efficientnet-b0")
         self.bev_feat = nn.Parameter(torch.rand(1,bev_dim,Z,X),requires_grad=True)
         self.cva0 = CrossViewAttention(depth,img_h,img_w,img_h //16,img_w//16,Z,Y,X,bev_dim,feat_c,heads=4,dim_head=32,qkv_bias=True)
         self.cva1 = CrossViewAttention(depth,img_h,img_w,img_h //8,img_w//8,Z,Y,X,bev_dim,feat_dim=40,heads=4,dim_head=32,qkv_bias=True)
@@ -336,12 +332,12 @@ class BuildModel(nn.Module):
 
 
     def forward(self,img,radar,intrinsic):
-        features, pre_reduced_features ,depth, depth_1 = self.backbone(img)
+        features, pre_reduced_features = self.backbone(img)
         bev_feat = self.bev_feat.repeat((img.shape[0],1,1,1))
 
-        x = self.cva0(features,intrinsic,depth,bev_feat)
+        x = self.cva0(features,intrinsic,bev_feat)
         x = self.layer0(x)
-        x = self.cva1(pre_reduced_features,intrinsic,depth_1,x)
+        x = self.cva1(pre_reduced_features,intrinsic,x)
         x = self.layer1(x)
         return self.decoder(x)
 
