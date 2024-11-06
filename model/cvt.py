@@ -323,7 +323,7 @@ class Decoder(nn.Module):
 
 
 class BuildModel(nn.Module):
-    def __init__(self,feat_c,depth,img_h,img_w,Z,Y,X,x_meter,y_meter,z_meter,bev_dim):
+    def __init__(self,feat_c,depth,img_h,img_w,Z,Y,X,x_meter,y_meter,z_meter,bev_dim,use_radar,radar_ch):
         super(BuildModel, self).__init__()
         self.backbone = ImageBackbone(C=feat_c,weight="efficientnet-b0")
         self.bev_feat = nn.Parameter(torch.rand(1,bev_dim,Z,X),requires_grad=True)
@@ -331,7 +331,12 @@ class BuildModel(nn.Module):
         self.cva1 = CrossViewAttention(depth,img_h,img_w,img_h //8,img_w//8,Z,Y,X,x_meter,y_meter,z_meter,bev_dim,feat_dim=40,heads=4,dim_head=32,qkv_bias=True)
         self.layer0 = Bottleneck(bev_dim, bev_dim // 4)
         self.layer1 = Bottleneck(bev_dim, bev_dim // 4)
-        self.decoder = Decoder(bev_dim,1)
+
+        if use_radar:
+            bev_feat_channel = bev_dim + radar_ch * Y
+        else:
+            bev_feat_channel = bev_dim
+        self.decoder = Decoder(bev_feat_channel,1)
 
         self.ce_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
         self.center_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
@@ -341,11 +346,15 @@ class BuildModel(nn.Module):
     def forward(self,img,radar,intrinsic):
         features, pre_reduced_features = self.backbone(img)
         bev_feat = self.bev_feat.repeat((img.shape[0],1,1,1))
-
         x = self.cva0(features,intrinsic,bev_feat)
         x = self.layer0(x)
         x = self.cva1(pre_reduced_features,intrinsic,x)
         x = self.layer1(x)
+
+        if self.use_radar:
+            radar = radar.permute(0, 3, 1, 2)
+            x = torch.cat((x,radar),dim=1)
+
         return self.decoder(x)
 
 
