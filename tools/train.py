@@ -11,13 +11,13 @@ import torchvision
 from tqdm import tqdm
 # from torchviz import make_dot, make_dot_from_trace
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 datetime_now = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
 
 
 
 def train(cfg,experiment_name):
-    device_ids = [0]
+    device_ids = [1,0]
     assert(cfg.batch_size % len(device_ids) == 0) # batch size must be divisible by number of gpus
     if cfg.grad_acc > 1:
         print('effective batch size:', cfg.batch_size*cfg.grad_acc)
@@ -109,7 +109,7 @@ def train(cfg,experiment_name):
             total_union += (pred_mask | tgt).sum().float().item()
 
 
-        if global_step % 10 == 0 and device=="cuda:0":
+        if global_step % 10 == 0:
             writer.add_scalar('train/iou', total_intersect / (total_union+1e-7), global_step)
             writer.add_scalar('train/center_loss',center_loss,global_step)
             writer.add_scalar('train/ce_loss',ce_loss,global_step)
@@ -126,7 +126,7 @@ def train(cfg,experiment_name):
 
 
 
-        if global_step % 100 == 0 and device=="cuda:0":
+        if global_step % 100 == 0:
             torch.cuda.empty_cache()
             model.eval()
             mname = f"{weights_dir}/weights.pt"
@@ -155,15 +155,15 @@ def train(cfg,experiment_name):
 
 
 if __name__ == "__main__":
-    # from glob import glob
-    # yaml_files = glob(f"/home/jing/Downloads/Radar_Camera_Fusion/cfg/*.yml")
-    # for files in yaml_files:
-    #     exp_name = files.split("/")[-1].replace(".yml",'')
-    #     cfgs = read_cfg(name=files)
-    #     cfgs = Namespace(**cfgs)
-    #     train(cfgs,exp_name)
-    files = "/home/jing/Downloads/Radar_Camera_Fusion/cfg/tu_delft_CVT_wo_radar.yml"
-    exp_name = files.split("/")[-1].replace(".yml", '')
-    cfgs = read_cfg(name=files)
-    cfgs = Namespace(**cfgs)
-    train(cfgs, exp_name)
+    from glob import glob
+    yaml_files = glob(f"/home/jing/Downloads/Radar_Camera_Fusion/cfg/*.yml")
+    for files in yaml_files:
+        exp_name = files.split("/")[-1].replace(".yml",'')
+        cfgs = read_cfg(name=files)
+        cfgs = Namespace(**cfgs)
+        train(cfgs,exp_name)
+    # files = "/home/jing/Downloads/Radar_Camera_Fusion/cfg/tu_delft_CVT_wo_radar.yml"
+    # exp_name = files.split("/")[-1].replace(".yml", '')
+    # cfgs = read_cfg(name=files)
+    # cfgs = Namespace(**cfgs)
+    # train(cfgs, exp_name)

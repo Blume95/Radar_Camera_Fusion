@@ -172,7 +172,7 @@ class CrossAttention(nn.Module):
 class CrossViewAttention(nn.Module):
     def __init__(self,depth,img_h,img_w,feat_h,feat_w,Z,Y,X,bev_dim,feat_dim,heads,dim_head,qkv_bias):
         super(CrossViewAttention,self).__init__()
-        self.image_plane = self.creat_img_xyz(depth,feat_h,feat_w,Z)
+        self.image_plane = self.creat_img_xyz(depth,feat_h,feat_w)
         self.bev_plane = self.creat_bev_xyz(Z,Y,X)
         self.sx = feat_w / img_w
         self.sy = feat_h / img_h
@@ -181,8 +181,9 @@ class CrossViewAttention(nn.Module):
         self.Z = Z
         self.feat_h = feat_h
         self.feat_w = feat_w
+        self.depth = depth
         self.bev_embed = nn.Linear(3*Y,bev_dim)
-        self.img_embed = nn.Linear(3*Z,bev_dim)
+        self.img_embed = nn.Linear(3*depth,bev_dim)
         self.value_proj = nn.Sequential(
             nn.BatchNorm2d(feat_dim),
             nn.ReLU(),
@@ -193,8 +194,8 @@ class CrossViewAttention(nn.Module):
             nn.Conv2d(feat_dim, bev_dim, 1, bias=False))
         self.cross_attention = CrossAttention(bev_dim, heads=heads, dim_head=dim_head, qkv_bias=qkv_bias)
 
-    def creat_img_xyz(self,depth,feat_h,feat_w,Z):
-        img_plane = create_grid3d(B=1,Z=Z,Y=feat_h,X=feat_w) # x y z -> u v d
+    def creat_img_xyz(self,depth,feat_h,feat_w):
+        img_plane = create_grid3d(B=1,Z=depth,Y=feat_h,X=feat_w) # x y z -> u v d
         img_plane[...,0] *= (feat_w*depth)
         img_plane[...,1] *= (feat_h*depth)
         img_plane[...,2] *= depth # b n 3 n=
@@ -221,13 +222,14 @@ class CrossViewAttention(nn.Module):
         image_plane = repeat(self.image_plane,'b n c -> (repeat b) n c',repeat=img_feat.shape[0])
         # print(f"image_plane: {image_plane.shape}")
         image_plane = torch.transpose(image_plane,1,2)
+        image_plane = image_plane.to(img_feat.device)
         xyz = torch.transpose(torch.matmul(inv_intrinsic,image_plane),1,2) # b n 3
         # depth_feat = rearrange(depth_feat,'b c h w -> b (c h w)')
         # depth_feat = depth_feat[:,:,None]
         # print(f"xyz;{xyz.shape}")
         # print(f"depth_feat;{depth_feat.shape}")
         # xyz_depth = torch.cat((xyz,depth_feat),dim=2)
-        xyz = rearrange(xyz,'b (d h w) c -> b d h w c',b=img_feat.shape[0],d=self.Z,
+        xyz = rearrange(xyz,'b (d h w) c -> b d h w c',b=img_feat.shape[0],d=self.depth,
                               h=self.feat_h,w=self.feat_w,c=3)
         xyz_depth = rearrange(xyz, 'b d h w c -> b h w (c d)')
         img_pe = self.img_embed(xyz_depth).permute(0,3,1,2)
@@ -239,6 +241,7 @@ class CrossViewAttention(nn.Module):
         bev_plane = repeat(self.bev_plane,'b n c -> (repeat b) n c',repeat=img_feat.shape[0])
         bev_plane = rearrange(bev_plane,'b (z y x) c -> b z y x c',b=img_feat.shape[0],z=self.Z,y=self.Y,x=self.X,c=3)
         bev_plane = rearrange(bev_plane,'b d h w c -> b d w (c h)')
+        bev_plane = bev_plane.to(img_feat.device)
         bev_pe = self.bev_embed(bev_plane).permute(0,3,1,2)
 
 
@@ -329,6 +332,10 @@ class BuildModel(nn.Module):
         self.layer0 = Bottleneck(bev_dim, bev_dim // 4)
         self.layer1 = Bottleneck(bev_dim, bev_dim // 4)
         self.decoder = Decoder(bev_dim,1)
+
+        self.ce_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
+        self.center_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
+        self.offset_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
 
 
     def forward(self,img,radar,intrinsic):
