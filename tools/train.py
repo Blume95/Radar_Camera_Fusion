@@ -11,13 +11,13 @@ import torchvision
 from tqdm import tqdm
 # from torchviz import make_dot, make_dot_from_trace
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 datetime_now = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
 
 
 
 def train(cfg,experiment_name):
-    device_ids = [1,0]
+    device_ids = [0]
     assert(cfg.batch_size % len(device_ids) == 0) # batch size must be divisible by number of gpus
     if cfg.grad_acc > 1:
         print('effective batch size:', cfg.batch_size*cfg.grad_acc)

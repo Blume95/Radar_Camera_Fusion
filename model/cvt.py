@@ -170,10 +170,10 @@ class CrossAttention(nn.Module):
 
 
 class CrossViewAttention(nn.Module):
-    def __init__(self,depth,img_h,img_w,feat_h,feat_w,Z,Y,X,bev_dim,feat_dim,heads,dim_head,qkv_bias):
+    def __init__(self,depth,img_h,img_w,feat_h,feat_w,Z,Y,X,x_meter,y_meter,z_meter,bev_dim,feat_dim,heads,dim_head,qkv_bias):
         super(CrossViewAttention,self).__init__()
         self.image_plane = self.creat_img_xyz(depth,feat_h,feat_w)
-        self.bev_plane = self.creat_bev_xyz(Z,Y,X)
+        self.bev_plane = self.creat_bev_xyz(Z,Y,X,x_meter,y_meter,z_meter)
         self.sx = feat_w / img_w
         self.sy = feat_h / img_h
         self.X = X
@@ -202,14 +202,14 @@ class CrossViewAttention(nn.Module):
 
         return img_plane
 
-    def creat_bev_xyz(self,Z,Y,X):
+    def creat_bev_xyz(self,Z,Y,X,x_meter,y_meter,z_meter):
         bev_plane = create_grid3d(B=1,Z=Z,Y=Y,X=X)
         bev_plane[...,0] -= 0.5
         bev_plane[...,1] -= 0.5
 
-        bev_plane[...,0] *= X
-        bev_plane[...,1] *= Y
-        bev_plane[...,2] *= Z # b n 3
+        bev_plane[...,0] *= x_meter
+        bev_plane[...,1] *= y_meter
+        bev_plane[...,2] *= z_meter # b n 3
 
         return bev_plane
 
@@ -248,7 +248,7 @@ class CrossViewAttention(nn.Module):
         query = bev_pe + bev_feat
 
         value =  self.value_proj(img_feat)
-        return self.cross_attention(query,value,key)
+        return self.cross_attention(query,value,key,skip=bev_feat)
 
 
 class Decoder(nn.Module):
@@ -323,12 +323,12 @@ class Decoder(nn.Module):
 
 
 class BuildModel(nn.Module):
-    def __init__(self,feat_c,depth,img_h,img_w,Z,Y,X,bev_dim):
+    def __init__(self,feat_c,depth,img_h,img_w,Z,Y,X,x_meter,y_meter,z_meter,bev_dim):
         super(BuildModel, self).__init__()
         self.backbone = ImageBackbone(C=feat_c,weight="efficientnet-b0")
         self.bev_feat = nn.Parameter(torch.rand(1,bev_dim,Z,X),requires_grad=True)
-        self.cva0 = CrossViewAttention(depth,img_h,img_w,img_h //16,img_w//16,Z,Y,X,bev_dim,feat_c,heads=4,dim_head=32,qkv_bias=True)
-        self.cva1 = CrossViewAttention(depth,img_h,img_w,img_h //8,img_w//8,Z,Y,X,bev_dim,feat_dim=40,heads=4,dim_head=32,qkv_bias=True)
+        self.cva0 = CrossViewAttention(depth,img_h,img_w,img_h //16,img_w//16,Z,Y,X,x_meter,y_meter,z_meter,bev_dim,feat_c,heads=4,dim_head=32,qkv_bias=True)
+        self.cva1 = CrossViewAttention(depth,img_h,img_w,img_h //8,img_w//8,Z,Y,X,x_meter,y_meter,z_meter,bev_dim,feat_dim=40,heads=4,dim_head=32,qkv_bias=True)
         self.layer0 = Bottleneck(bev_dim, bev_dim // 4)
         self.layer1 = Bottleneck(bev_dim, bev_dim // 4)
         self.decoder = Decoder(bev_dim,1)
