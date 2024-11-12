@@ -1,6 +1,6 @@
 dataset: tu_delft
 dataset_path: /home/jing/Downloads/view_of_delft_PUBLIC/
-model: CVT
+model: LSS
 batch_size: 2
 workers: 8
 lr: 0.0001
@@ -15,15 +15,15 @@ grid:
   xbound:
   - -8.0
   - 8.0
-  - 0.1
+  - 0.5
   ybound:
   - -4.0
   - 4.0
-  - 1.0
+  - 8.0
   zbound:
   - 0
   - 32
-  - 0.1
+  - 0.5
   dbound:
   - 3.0
   - 43.0
@@ -36,9 +36,9 @@ org_hw:
 - 1936
 cam_channel: 64
 radar_channel: 3
-use_Radar: true
+use_Radar: false
 use_Cam: true
-data_aug: false
+data_aug: true
 data_aug_conf:
   crop_offset: 51
   resize_lim:
