@@ -337,6 +337,7 @@ class BuildModel(nn.Module):
         else:
             bev_feat_channel = bev_dim
         self.decoder = Decoder(bev_feat_channel,1)
+        self.use_radar = use_radar
 
         self.ce_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)
         self.center_weight = nn.Parameter(torch.tensor(0.0), requires_grad=True)

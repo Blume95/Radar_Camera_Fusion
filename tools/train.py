@@ -126,7 +126,7 @@ def train(cfg,experiment_name):
 
 
 
-        if global_step % 100 == 0:
+        if global_step % cfg.val_step == 0:
             torch.cuda.empty_cache()
             model.eval()
             mname = f"{weights_dir}/weights.pt"

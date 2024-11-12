@@ -53,7 +53,9 @@ def build_model(cfg):
     if cfg.model == "CVT":
         from model.cvt import BuildModel
         model_ = BuildModel(feat_c=cfg.img_feat_c,depth=cfg.z_meter,img_h=cfg.final_hw[0], img_w=cfg.final_hw[1],
-                            Z=cfg.voxel_z,Y=cfg.voxel_y,X=cfg.voxel_x,x_meter=cfg.x_meter,y_meter=cfg.y_meter,z_meter=cfg.z_meter,bev_dim=cfg.out_ch)
+                            Z=cfg.voxel_z,Y=cfg.voxel_y,X=cfg.voxel_x,
+                            x_meter=cfg.x_meter,y_meter=cfg.y_meter,z_meter=cfg.z_meter,bev_dim=cfg.out_ch,
+                            use_radar=cfg.use_Radar,radar_ch=cfg.radar_channel)
         return model_
     if cfg.model == "LSS":
         from model.lls import BuildModel
